@@ -1,39 +1,632 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script id="MathJax-script" async 
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+        
+    </script>
 
     <title>Partially Observable Markov Decision Processes Overview</title>
 </head>
 
 <body style="font-family: sans-serif">
     <h1>Partially Observable Markov Decision Processes</h1>
-    <h4>Author: Kalonji Harrington</h4>
+    <h5>Author: Kalonji Harrington</h5>
 
     <hr>
 
     <h2>Overview</h2>
 
+    <p>
+        Partially-Observable Markov Decision Processes are a technique
+        for optimal decision-making in environments in which the true
+        state is not always known. They were first introduced by Eugene
+        Dynkin in the 1960s, which he first denoted a "partially observed
+        random sequence with a payoff" (Dynkin 1965). In essence, the agent
+        does not have direct access to the state of the world, but rather 
+        a series of imperfect observations it must use to take actions. 
+        These models were first used in the field of operations research to 
+        model processes such as maintenance and advertisement (Albright 1979).
+    </p>
+
+    <p>
+        Eventually, these techniques from operations research were applied
+        to artificial intelligence planning in stochastic domains 
+        (Cassandra et. al. 1995) (Kaelbling et. al. 1998). Unlike planning 
+        with Markov Decision Processes, there is no longer an assumption 
+        that the robot has knowledge of exactly what state it is in. So, a 
+        policy must be designed to act purely on the uncertain beliefs of
+        the agent, further increasing the probabilistic nature of the 
+        problem (Kaelbling et. al. 1998). Real world applications on robots 
+        often cannot rely on fully knowledge of the environment, such as 
+        navigation without GPS, and thus solutions to POMDPs are still 
+        incredibly important to planning in robotics. 
+    </p>
+
     <hr>
 
     <h2>Formal Definition</h2>
 
+    <p>
+        A fully-observable Markov Decision Process formally defined by the 
+        tuple \((S, A, T, R)\) where:
+        <ul>
+            <li>
+                \(S\) - The set of all possible states \(s\) the agent can 
+                be in
+            </li>
+            <li>
+                \(A\) - The set of all possible actions \(a\) the agent can 
+                take
+            </li>
+            <li>
+                \(T(s, a, s')\) - A function modeling \(P(s' | s, a)\), or the 
+                probability the agent reach a state \(s'\) given it took action 
+                \(a\) from state \(s\)
+            </li>
+            <li>
+                \(R(s, a, s')\) - A reward function that defines the amount of 
+                reward that is given for executing action \(a\) resulting in 
+                moving the agent from state \(s\) to state \(s'\)
+            </li>
+        </ul>
+        Since the outcomes of T and R only depend on the previous state/action, 
+        the entire model has the Markov property. To solve an MDP, the planner 
+        must find a policy \(\pi(s)\) that selects the action with the highest 
+        expected return at any given state. The expected return for a policy at 
+        state \(s\) is defined using the Bellman equation below:
+        
+
+        $$V^{*}_{\pi}(s)  = \sum_{s' \in S}{T(s, \pi(s), s')[R(s, \pi(s), s') +
+        \gamma [V^{*}_{\pi}(s')]]}$$
+    </p>
+
+    <p>
+        For POMDPs, this formulation is modified as shown in (Kaelbling et. al.
+        1998):
+        <ul>
+            <li>
+                \((S, A, T, R)\) are equivalent to an MDP
+            </li>
+            <li>
+                \(\Omega\) - all possible observations \(o\) the agent can make
+            </li>
+            <li>
+                \(O(s', a, o)\) - A function modeling \(P(o | s', a)\), or the 
+                probability the agent makes observation \(o\) given it 
+                transitioned to state \(s'\) using action \(a\)
+            </li>
+        </ul>
+        While the \((S, A, T, R, \Omega, O)\) tuple is enough to define the 
+        model, in planning the agent does not have access to \(S\). The agent 
+        only has access to a sequence of prior actions and observations with 
+        which to estimate \(s\), but relying on a sequence of observations 
+        to estimate the next action breaks the Markov property. 
+    </p>
+
+    <p>
+        To avoid this, Kaelbling et. al define a belief state such that 
+        $$b(s') = \frac{O(s', a, o)\sum_{s \in S}{T(s, a, s')b(s)}}
+        {P(o | a, b)}$$
+        This recursive definition means that the current belief state only 
+        depends on the most recent action and observation as well as the 
+        previous belief state, thus maintaining the Markov property. 
+    </p>
+
+    <p>
+        With this new definition obtained, POMDPs can now be formulated in a 
+        manner very similar to fully-observable MDPs with the tuple \((B, 
+        A, \tau, \rho)\):
+        <ul></ul>
+            <li>
+                \(B\) - The set of all possible belief states \(b\) the agent 
+                can be in
+            </li>
+            <li>
+                \(A\) - The set of all possible actions (same as MDP)
+            </li>
+            <li>
+                \(\tau(b, a, b')\) - A function modeling \(P(b' | a, b)\), or 
+                the probability the agent reach belief state \(b'\) given it 
+                took action \(a\) from belief state \(b\)
+            </li>
+            <li>
+                \(\rho(b, a)\) - A reward function that defines the amount of 
+                reward that is given for executing action \(a\) resulting in 
+                moving the agent from belief state \(b\). \(\rho(b, a) = \sum_{
+                    s \in S}{b(s)R(s, a)}\)
+            </li>
+        </ul>
+    </p>
+
+    <p>
+        By defining a POMDP in this manner, it is essentially reduced to a 
+        fully-observable MDP over the belief states. However, the difference is 
+        exemplified more in the new value function:
+        $$V_{\pi}(b) = \sum_{s \in S}{b(s)[R(s, \pi(s)) + \gamma \sum_{s' \in S}
+        {[T(s, \pi(s), s') \sum_{o_i \in \Omega}{O(s', \pi(s), o_i)V_\pi(b^{
+            \pi(s)}_o)}]}]}$$
+        $$ = \sum_{s \in S}{b(s)V_\pi(s)}$$
+        where \(b^{\pi(s)}_o\) is the belief state resulting from making 
+        observation \(o\) after taking action \(\pi(s)\).
+    </p>
+
+    <p>
+        If we assume \(b\) to be a vector of probabilities of being in a 
+        particular state and \(\alpha_\pi\) to be the vector of the expected 
+        returns when executing policy \(\pi\) in every state, the above 
+        eqaution can be rewritten as: 
+        $$ V_{\pi}(b) = b \cdot \alpha_\pi$$
+    </p>
+
+    <p>
+        So the expected reward at a belief state is dependent on the expected 
+        rewards of the possible states the agent may be in, not just on the 
+        next belief state. It is unlikely that \(b(s) = 0\) for many states, so 
+        \(V_\pi(s)\) would need to be calculated for most states at each 
+        iteration, which is intractable in all but the smallest scenarios. The 
+        belief states are also a continuous probability distribution, meaning 
+        traditional methods for solving discrete MDPs do not apply.
+    </p>
+
+    <p>
+        A final move Smallwood and Sondik (1973) make is to define a solution 
+        as a t-step policy tree. t-step policy trees 
+        define a nonstationary t-step policy, in which the agent starts with an 
+        initial action then continues down a tree based on the observations it 
+        makes. This policy tree is optimal for a belief state if the actions at 
+        every timestep \(t\), conditioned on the observations, maximize the 
+        value function \(V(b)\). What early authors (Smallwood and Sondik 1973) 
+        were able to show was that the expected returns of the optimal policy 
+        trees are piecewise linear and convex w.r.t the belief vector, as shown 
+        in  Figure 1 below. 
+    </p>
+
+    <div style="text-align: center;">
+    <figure>
+        <img src="images/Kaelbling_et_al_convex_optimal_policy.png" title=
+        "Piecwise Linear Convex Optimal Solution to POMDP" alt="Piecwise linear 
+        function of the expected returned based on belief state value. The 
+        linear functions of three policy trees are shown, with different 
+        policies being optimal based on the belief state." class="center">
+        <figcaption>
+            Figure 1 (Kaelbling et. al. 1998): A graph of the expected returns 
+            for 3 policy trees on a 2-state POMDP in various belief states. The 
+            optimal solution (bold) is piecewise linear and convex.
+        </figcaption>
+    </figure>
+    </div>
+
+    <p>
+        In many cases, this nonstationary t-step policy tree can be redefined 
+        as a stationary policy graph, or finite state controller (Kaelbling et. 
+        al. 1998) (Braziunas 2003). This allows for the modeling of 
+        infinite-horizon tasks and reduces the overhead of generating various 
+        policy trees. 
+    </p>
+    
     <hr>
 
-    <h2>Results</h2>
+    <h2>Exact Solutions</h2>
+
+    <p>
+        One naive way of solving the problem is to first create a policy on the 
+        underlying fully-observable MDP, then execute that policy based on the 
+        most likely state the agent is in. This is a relatively simple and easy 
+        to implement solution, but belief states with high entropy are likely 
+        to have suboptimal solutions, as the policy does not distinguish them 
+        from ones with low entropy. In other words, the agent will not make 
+        tentative or information-gathering actions when it is uncertain. 
+    </p>
+
+    <hr>
+
+    <h4>Value Iteration</h4>
+
+    <p>
+        Since we have defined our POMDP such that it is simply an MDP over a 
+        continuous state space, value iteration and policy iteration can still 
+        reach exact solutions with modifications. Although the belief state 
+        space is continuous, recall that the optimal value function is piecewise 
+        linear and convex, and is represented by a vector \(\alpha\) of the 
+        optimal values for each state in \(S\). In order to perform value 
+        iteration at timestep \(t\), we need to contruct a new \(t\)-size 
+        policy for each state in \(S\) finding the action and 
+        collection of \(t-1\)-step subtrees that maximizes the value for that 
+        state. A diagram of the use of \(t-1\)-step subtrees is shown in Figure 
+        2:
+    </p>
+
+    <div style="text-align: center;">
+    <fig>
+        <img src="images/Kaelbling_et_al_subtrees.png" title=
+        "Adding an action at the root of a tree creates a t-step subtree"/>
+        <figcaption>
+            Figure 2 (Kaelbling et. al. 1998): Adding an action as the root of 
+            a tree and defining which \(t-1\)-step subtrees are taken at each 
+            observation creates a new \(t\)-step subtree.
+        </figcaption>
+    </fig>
+    </div>
+
+    <p> 
+        While it is possible to generate all possible trees then select the 
+        optimal choice, this is very computationally expensive, so many 
+        algorithms seek on only generate policy trees that dominate others. 
+        These value-iteration algorithms include the witness algorithm 
+        (Kaelbling et. al. 1998), Sondik's One-pass (Smallwood and Sondik 
+        1973), and Cheng's Linear Support (Cheng 1988). Even when avoiding the 
+        generation of all possible policy trees, the problem is still 
+        intractable for any major example (Braziunas 2003). 
+    </p>
+
+    <hr>
+
+    <h4>Policy Iteration</h4>
+
+    <p>
+        Policy iteration is generally more promising once a suitable 
+        representation for the policy is found. Many applications use a 
+        stationary policy graph to represent the policy, then use the sample 
+        policy evaluation and policy update paradigm as fully-observable MDPs. 
+        Eric Hansen (1997) proposes such an algorithm, in which evaluation is 
+        done by calculating the set of \(\alpha\) vectors for the policy and 
+        improvement is done by modifying connections in the policy graph based 
+        on the optimal \(\alpha\) vectors. While reaching faster 
+        convergence than value iteration without much worse performance, the 
+        algorithm still does not perform well enough to solve a large POMDP. 
+    </p>
+
+    <hr>
+
+    <h2>Gradients and Sampling</h2>
+
+    <p>
+        Since exact methods are computationally intractable, approximation 
+        methods are much more widely used for solving POMDPs. One method of 
+        doing this is by creating a finite policy graph that is continuous and 
+        differentiable (Meuleau et. al. 1999a-b). By climbing the gradient, the 
+        agent can at least reach a local maximum, but does not have provide a 
+        guarantee of optimality. This does require the policy graph to be 
+        relatively small however, meaning only a small number of states can be 
+        represented. This has also been achieved by using knowledge about the 
+        search space to structurally restrict policy graph and reduce its 
+        overall size. This includes making the model reactive (Littman 1994) or 
+        limiting to a finite memory horizon (McCallum 1995). 
+    </p>
+
+    <p>
+        Point-based value-iteration methods are another popular class of 
+        solutions (Pineau et al. 2003) (Hsu et al. 2008) (Kurniawati et al. 
+        2009). These methods attempt to sample the belief states rather than 
+        fully representing them. Value-iteration is then done using this 
+        approximation of the belief states, allowing an approximation of the 
+        optimal value function to be found with far fewer \(\alpha\) vectors. 
+        Various methods devise different ways of sampling or pruning belief 
+        states while still approaching a good approximation of the true values. 
+    </p>
+
+    <p>
+        Another approximation method for POMDPs is to use Monte-Carlo Tree 
+        Search. Silver and Veness (2010) propose using MCTS to sample start 
+        states from the belief states and observation histories from a black 
+        box simulator, allowing planning in relatively large state-space POMDPs. 
+        Silver and Veness's method makes use of domain-specific heuristics to 
+        assist with the rollout, but later work explored recasting the problem 
+        to make use of domain-independent heuristics (Blumenthal & Shani 2024). 
+    </p>
+
+    <p>
+        More recent research has used deep learning to policy gradient 
+        solutions (Wierstra, D. et al. 2007) (Hausknecht and Stone 2017) 
+        (Nishimori et al. 2023). Wierstra et al. (2007) and Hausknecht & Stone 
+        (2017) both propose using recurrent neural networks for policy gradient 
+        and temporal difference methods, respectively, in order to more 
+        efficiently represent the history of observations. Zhu et al. (2017) 
+        improve upon this recurrent architecture by forming action-observation 
+        pairs as part of the history, rather than just observations, yielding 
+        better results in partially observable environments. 
+    </p>
 
     <hr>
 
     <h2>Applications to Robotics</h2>
 
+    <p>
+        Markov Decision Processes have been foundational in the advancement of 
+        reinforcement learning. The stochastic nature of actions makes it much 
+        easier to learn with imperfect control systems and probabilistic 
+        outcomes to every choice. However, what fully-observable MDPs cannot 
+        model is the uncertain nature of a robot's information gathering. Noisy 
+        sensors, unknown human intentions, and incomplete information about the 
+        environment are all inevitable features of robot planning (Lauri et al. 
+        2023). POMDPs are a framework that allows the modeling of this 
+        uncertainty about the state of the world, making them a perfect 
+        candidate for enhancing reienforment learning approaches to robot 
+        planning. 
+    </p>
+
+    <p>
+        Robot tasks that have been modeled as POMDPs, with commons sources of 
+        uncertainty, include (Lauri et al. 2023):
+        <ul>
+            <li>
+                Navigation and Localization
+                <ul>
+                    <li>Unknown robot location and environment map</li>
+                </ul>
+            </li>
+            <li>
+                Autonomous Driving
+                <ul>
+                    <li>
+                        Unknown locations/intentions of vehicles/pedistrians
+                    </li>
+                    <li>
+                        Changing perception (weather conditions, etc.)
+                    </li>
+                </ul>
+            </li>
+            <li>
+                Target Search, Tracking, and Avoidance
+                <ul>
+                    <li>Unknown location/intentions of target</li>
+                </ul>
+            </li>
+            <li>
+                Object Manipulation
+                <ul>
+                    <li>Visual ambiguities/occlusions</li>
+                </ul>
+            </li>
+            <li>
+                Human-Robot Interaction
+                <ul>
+                    <li>Intentions of the human</li>
+                </ul>
+            </li>
+            <li>
+                Multi-Agent Planning
+                <ul>
+                    <li>State and intentions of other agents</li>
+                </ul>
+            </li>
+        </ul>
+    </p>
+
+    <p>
+        Many of the approximation methods discussed above have been used to 
+        address these problems, including point-based methods (Monsó et al. 
+        2012) (Atrash and Pineau 2009), Monte-Carlo Tree Search (Goldhoorn et 
+        al. 2018) (Sunberg and Kochenderfer 2018), and policy iteration 
+        (Durrant-Whyte et al. 2012) (Pajarinen & Kyrki 2017), among other 
+        methods (see Lauri et al. 2023 for full list).
+    </p>
+
     <hr>
 
     <h2>Open Questions</h2>
-    
+
+    <p>
+        If we remember the necessary definitions in a formal outline of a 
+        POMDP, one aspect of the model that needs to be known is a model of how 
+        likely an observation is to be seen given a certain action resulting in 
+        the agent entering a certain state. However, developing such a model 
+        for a robot is not always easy (Kim et al. 2021 discuss this in the 
+        context of soft robotics), and correctly modeling this uncertainty 
+        is critical to the success of offline training. Online training can 
+        help alleviate this by further training on actual robots, but relying 
+        on online training does not give sufficient guarantees for high-risk 
+        scenarios.
+    </p>
+
+    <p>
+        Recent work into end-to-end learning that integrates both learning the  
+        model and planning with it into one task has helped achieve better 
+        performance even when a good model cannot be defined (Nishimori et al. 
+        2023). But there is still more work to be done in ensuring these models 
+        are explainable, especially in high-dimensional state spaces. Without 
+        this explanability on some guarantee of correctness, end-to-end 
+        learning may not be deployable in high-stakes environments like 
+        medicine, especially if uncertainty is high. 
+    </p>
+
+    <p>
+        Monte-Carlo Tree Search methods allow learning in continuous state 
+        space POMDPs using sampling. Policy iteration methods can model 
+        continuous actions just as in fully-observable MDPs by modeling actions 
+        as a probability distribution. However, there is little work on 
+        planning and acting in continuous state and action spaces, particularly 
+        with continuous time (Lauri et al. 2023). This is especially important 
+        for robots that may need to react quickly to the environment, so may 
+        not have the luxury for planning in discrete timesteps with discrete 
+        actions. 
+    </p>
+
     <hr>
 
     <h2>References</h2>
 
+    <ol>
+        <li>
+            Albright, S. C. (1979). Structural Results for Partially
+            Observable Markov Decision Processes. Operations Research, 
+            27(5), 1041–1053. doi:10.1287/opre.27.5.1041
+        </li>
+        <li>
+            Arcieri, G., Hoelzl, C., Schwery, O. et al. (2024). POMDP inference 
+            and robust solution via deep reinforcement learning: an application 
+            to railway optimal maintenance. Mach Learn. 
+            https://doi.org/10.1007/s10994-024-06559-2
+        </li>
+        <li>
+            Atrash, A., & Pineau, J. (2009). A bayesian reinforcement learning 
+            approach for customizing human-robot interfaces. Proceedings of the 
+            14th International Conference on Intelligent User Interfaces, 
+            355–360. Presented at the Sanibel Island, Florida, USA. 
+            doi:10.1145/1502650.1502700
+        </li>
+        <li>
+            Blumenthal, O., Shani, G. (2024). Domain independent heuristics for 
+            online stochastic contingent planning. Ann Math Artif Intell. 
+            https://doi.org/10.1007/s10472-024-09947-5
+        </li>
+        <li>
+            Braziunas, D. (2003). POMDP solution methods.
+        </li>
+        <li>
+            Cassandra, A.R, Kaelbling, L.P. & Littman, M.L. (1995). 
+            Acting Optimally in Partially Observable Stochastic Domains. In 
+            Aaai (Vol. 94, pp. 1023-1028).
+        </li>
+        <li>
+            Durrant-Whyte, H., Roy, N., & Abbeel, P. (2012). Unmanned Aircraft 
+            Collision Avoidance Using Continuous-State POMDPs. In Robotics: 
+            Science and Systems VII (pp. 1–8).
+        </li>
+        <li>
+            Dynkin, E. B. (1965). Controlled Random Sequences. Theory of
+            Probability & Its Applications, 10(1), 1–14. 
+            doi:10.1137/1110001
+        </li>
+        <li>
+            Goldhoorn, A., Garrell, A., Alquézar, R. et al (2018). Searching and 
+            tracking people with cooperative mobile robots . Auton Robot 42, 
+            739–759. https://doi.org/10.1007/s10514-017-9681-6
+        </li>
+        <li>
+            Hansen, E. A. (1997). An improved policy iteration algorithm for 
+            partially observable MDPs. In Proceedings of Conference on 
+            Neural Information Processing Systems, pages 1015–1021, 
+            Denver, CO, 1997.
+        </li>
+        <li>
+            Hausknecht, M., & Stone, P. (2017). Deep Recurrent Q-Learning for 
+            Partially Observable MDPs. arXiv [Cs.LG]. Retrieved from 
+            http://arxiv.org/abs/1507.06527
+        </li>
+        <li>
+            Hsien-Te Cheng. Algorithms for Partially Observable Markov 
+            Decision Processes. PhD thesis, University of British 
+            Columbia, Vancouver, 1988.
+        </li>
+        <li>
+            Hsu, D., Lee, W. S., & Rong, N. (2008). A point-based POMDP planner 
+            for target tracking. 2008 IEEE International Conference on Robotics 
+            and Automation, 2644–2650. doi:10.1109/ROBOT.2008.4543611
+        </li>
+        <li>
+            Kaelbling, L.P., Littman, M.L., & Cassandra, A.R. (1998). 
+            Planning and Acting in Partially Observable Stochastic 
+            Domains. Artif. Intell., 101, 99-134. 
+        </li>
+        <li>
+            Kim D, Kim SH, Kim T, Kang BB, Lee M, et al. (2021) Review of 
+            machine learning methods in soft robotics. PLOS ONE 16(2): e0246102. 
+            https://doi.org/10.1371/journal.pone.0246102
+        </li>
+        <li>
+            Kurniawati, H., Hsu, D., & Lee, W. S. (2009). SARSOP: Efficient 
+            Point-Based POMDP Planning by Approximating Optimally Reachable 
+            Belief Spaces. In Robotics: Science and Systems IV (pp. 65–72). 
+            doi:10.7551/mitpress/8344.001.0001
+        </li>
+        <li>
+            Lauri, M., Hsu, D., & Pajarinen, J. (2023). Partially Observable 
+            Markov Decision Processes in Robotics: A Survey. IEEE Transactions 
+            on Robotics, 39(1), 21–40. doi:10.1109/tro.2022.3200138
+        </li>
+        <li>
+            Littman, M. L. (1994). Memoryless Policies: Theoretical 
+            Limitations and Practical Results. In From Animals to Animats 3: 
+            Proceedings of the Third International Conference on Simulation of 
+            Adpative Behavior. doi:10.7551/mitpress/3117.003.0041
+        </li>
+        <li>
+            McCallum, R. A. (1995). Instance-Based Utile Distinctions for 
+            Reinforcement Learning with Hidden State. In A. Prieditis & S. 
+            Russell (Eds.), Machine Learning Proceedings 1995 (pp. 387–395). 
+            doi:10.1016/B978-1-55860-377-6.50055-4
+        </li>
+        <li>
+            Meuleau, N., Peshkin, L., Kim, K.-E., & Kaelbling, L. P. (1999a). 
+            Learning finite-state controllers for partially observable 
+            environments. Proceedings of the Fifteenth Conference on 
+            Uncertainty in Artificial Intelligence, 427–436. Presented at the 
+            Stockholm, Sweden. San Francisco, CA, USA: Morgan Kaufmann 
+            Publishers Inc.
+        </li>
+        <li>
+            Meuleau, N., Kim, K.-E., Kaelbling, L. P., & Cassandra, A. R. 
+            (1999b). Solving POMDPs by searching the space of finite policies. 
+            Proceedings of the Fifteenth Conference on Uncertainty in 
+            Artificial Intelligence, 417–426. Presented at the Stockholm, 
+            Sweden. San Francisco, CA, USA: Morgan Kaufmann Publishers Inc.
+        </li>
+        <li>
+            Monsó, P., Alenyà, G., & Torras, C. (2012). POMDP approach to 
+            robotized clothes separation. 2012 IEEE/RSJ International 
+            Conference on Intelligent Robots and Systems, 1324–1329. 
+            doi:10.1109/IROS.2012.6386011
+        </li>
+        <li>
+            Nishimori, S., Koyamada, S., & Ishii, S. (2023). End-to-End Policy 
+            Gradient Method for POMDPs and Explainable Agents. arXiv [Cs.AI]. 
+            doi:10.48550/arXiv.2304.09769
+        </li>
+        <li>
+            Pajarinen, J., & Kyrki, V. (2017). Robotic manipulation of multiple 
+            objects as a POMDP. Artificial Intelligence, 247, 213–228. 
+            doi:10.1016/j.artint.2015.04.001
+        </li>
+        <li>
+            Pineau, J., Gordon, G., & Thrun, S. (2003). Point-based value 
+            iteration: an anytime algorithm for POMDPs. Proceedings of the 18th 
+            International Joint Conference on Artificial Intelligence, 
+            1025–1030. Presented at the Acapulco, Mexico. San Francisco, CA, 
+            USA: Morgan Kaufmann Publishers Inc.
+        </li>
+        <li>
+            Silver, D., & Veness, J. (2010). Monte-Carlo Planning in Large 
+            POMDPs. In J. Lafferty, C. Williams, J. Shawe-Taylor, R. Zemel, & 
+            A. Culotta (Eds.), Advances in Neural Information Processing 
+            Systems (Vol. 23). Retrieved from 
+            https://proceedings.neurips.cc/paper_files/paper/2010/file/edfbe1afcf9246bb0d40eb4d8027d90f-Paper.pdf
+        </li>
+        <li>
+            Smallwood, R. D., & Sondik, E. J. (1973). The Optimal Control 
+            of Partially Observable Markov Processes Over a Finite 
+            Horizon. Operations Research, 21(5), 1071–1088.
+        </li>
+        <li>
+            Sunberg, Z., & Kochenderfer, M. (2018). Online algorithms for 
+            POMDPs with continuous state, action, and observation spaces. 
+            arXiv [Cs.AI]. doi:10.1609/icaps.v28i1.13882
+        </li>
+        <li>
+            Wierstra, D., Foerster, A., Peters, J., Schmidhuber, J. (2007). 
+            Solving Deep Memory POMDPs with Recurrent Policy Gradients. In: de 
+            Sá, J.M., Alexandre, L.A., Duch, W., Mandic, D. (eds) Artificial 
+            Neural Networks – ICANN 2007. ICANN 2007. Lecture Notes in Computer 
+            Science, vol 4668. Springer, Berlin, Heidelberg. 
+            https://doi.org/10.1007/978-3-540-74690-4_71
+        </li>
+        <li>
+            Williams, R.J. (1992). Simple statistical gradient-following 
+            algorithms for connectionist reinforcement learning. Mach Learn 8, 
+            229–256. https://doi.org/10.1007/BF00992696
+        </li>
+        <li>
+            Zhu, P., Li, X., Poupart, P., & Miao, G. (2018). On Improving Deep 
+            Reinforcement Learning for POMDPs. arXiv [Cs.LG]. 
+            doi:10.48550/arXiv.1704.07978
+        </li>
+    </ol>  
+
 </body>
+
 </html>
